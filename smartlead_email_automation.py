@@ -93,10 +93,43 @@ def fetch_leads_needing_email(df):
 
 def send_emails(email_leads):
     print("Sending emails...")
+    sent_actions = []
     for _, lead in email_leads.iterrows():
-        print(f"Email sent: {lead['First Name']} {lead['Last Name']} - Subject: Follow-up")
+        # Simulate email sending
+        print(f"Email sent: {lead['First Name']} {lead['Last Name']} - Action: {lead['Next Action']}")
+        sent_actions.append(lead)
     print("✅ All valid emails sent successfully.")
+    return sent_actions
 
+def update_completion_dates(sent_actions):
+    print("Updating completion dates...")
+    try:
+        leads_df = pd.read_excel('leads.xlsx')
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        for action in sent_actions:
+            mask = leads_df['Email'].str.lower() == action['Email'].lower()
+            
+            if not leads_df[mask].empty:
+                # Update Last Action Date
+                leads_df.loc[mask, 'Last Action Date'] = today
+                
+                # Update specific action completion date (e.g., "Day 1 Action 1 Complete Date")
+                action_prefix = action['Next Action Column'].replace(' ', ' ')  # Keep original format
+                completion_col = f"{action_prefix} Complete Date"
+                
+                if completion_col in leads_df.columns:
+                    leads_df.loc[mask, completion_col] = today
+                else:
+                    print(f"⚠️ Column '{completion_col}' not found for {action['Email']}")
+
+        leads_df.to_excel('leads.xlsx', index=False)
+        print("✅ Completion dates updated successfully.")
+    except Exception as e:
+        print(f"⚠️ Error updating completion dates: {e}")
+
+
+# In the main function, modify the send_emails call:
 def main():
     api_key = authenticate_with_smartlead()
     if api_key is None:
@@ -114,7 +147,8 @@ def main():
                 if updated_leads is not None:
                     email_leads = fetch_leads_needing_email(updated_leads)
                     if not email_leads.empty:
-                        send_emails(email_leads)
+                        sent_actions = send_emails(email_leads)
+                        update_completion_dates(sent_actions)  # Add this line
                     else:
                         print("No valid emails to send at this time.")
                 else:
@@ -126,6 +160,7 @@ def main():
         
         print("\nProcess completed. Next check in 20 minutes.")
         time.sleep(1200)
+
 
 if __name__ == "__main__":
     main()
