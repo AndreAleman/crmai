@@ -48,43 +48,31 @@ def fetch_leads_needing_email():
     print("Step 2: Fetching leads needing email actions...")
     
     try:
-        # Read the leads Excel file
         df = pd.read_excel('leads.xlsx')
         print("Column names in leads.xlsx:", df.columns.tolist())
 
-        # Check if required columns exist
-        required_columns = ['Start Date', 'Next Action', 'Days Until Next Action', 'Pause Trigger']
-        for col in required_columns:
-            if col not in df.columns:
-                print(f"Error: Required column '{col}' not found in leads.xlsx")
-                return None
-
-        # Convert date columns to datetime
-        date_columns = ['Start Date', 'Last Date']
-        for col in date_columns:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-        
-        # Calculate Days Since Start
-        current_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        df['Days Since Start'] = (current_date - df['Start Date']).apply(lambda x: x.days if pd.notnull(x) else None)
-
         # Filter leads needing email actions
         email_leads = df[
-            (df['Next Action'] == 'Email') &
-            (df['Days Until Next Action'].notna()) &
-            (df['Days Until Next Action'] <= 1) &
-            (df['Pause Trigger'].isna() | (df['Pause Trigger'] == ''))
+            (
+                (df['Next Action'] == 'Email') &  # Next action is Email
+                (
+                    (df['Days Until Next Action'] <= 0) |  # Due today or overdue
+                    (df['Days Until Next Action'] == 1)    # Due tomorrow
+                )
+            ) &
+            (df['Pause Trigger'].isna() | (df['Pause Trigger'] == ''))  # Not paused
         ]
         
         print(f"Found {len(email_leads)} leads needing email actions.")
         return email_leads
-
+    
     except FileNotFoundError:
         print("⚠️ 'leads.xlsx' file not found.")
         return None
     except Exception as e:
         print(f"⚠️ Error fetching leads: {e}")
         return None
+
 
 
 # Call the function to fetch leads
