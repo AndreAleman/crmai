@@ -181,105 +181,70 @@ def template_exists(template_name):
     return True  # Placeholder return
 
 def send_emails(email_leads):
-    print("Sending emails...")
+    print("Adding leads to email campaigns...")
     sent_records = []
     
     try:
         with open('smartlead_api.txt', 'r') as f:
             API_KEY = f.read().strip()
             
-        CAMPAIGN_ID = "YOUR_CAMPAIGN_ID"  # Replace with your actual campaign ID
+        SMARTLEAD_URL = f"https://server.smartlead.ai/api/v1/leads/create?api_key={API_KEY}"
         
         for _, lead in email_leads.iterrows():
             try:
                 email_step = lead['Emails Sent Count'] + 1
-                template_name = get_template_name(email_step)
                 
-                response = requests.post(
-                    f"https://server.smartlead.ai/api/v1/leads/create?api_key={API_KEY}",
-                    json={
-                        "campaign_id": CAMPAIGN_ID,
-                        "email": lead['Email'],
-                        "first_name": lead['First Name'],
-                        "last_name": lead['Last Name'],
-                        "template_name": template_name,
-                        "custom_fields": {
-                            # Add any additional merge fields your template requires
-                        }
-                    }
-                )
-                
-                if response.status_code == 200:
-                    print(f"✅ Email queued: {lead['Email']} - Template: {template_name}")
-                    sent_records.append({
-                        'Email': lead['Email'],
-                        'Template': template_name,
-                        'Step': email_step,
-                        'Sent_Date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    })
+                # Determine the appropriate campaign based on email step
+                if email_step == 1:
+                    campaign_id = "1669416"  # call0325_email1
+                    campaign_name = "call0325_email1"
+                elif email_step == 2:
+                    campaign_id = "1715364"  # call0325_email2
+                    campaign_name = "call0325_email2"
+                elif email_step == 3:
+                    campaign_id = "1715373"  # call0325_email3
+                    campaign_name = "call0325_email3"
                 else:
-                    print(f"⚠️ Failed to send to {lead['Email']}: {response.text}")
-            
-            except Exception as e:
-                print(f"⚠️ Error with {lead['Email']}: {str(e)}")
-    
-    except Exception as e:
-        print(f"🚨 Critical error: {str(e)}")
-    
-    print(f"\nTotal emails queued: {len(sent_records)}")
-    return sent_records
-
-
-def send_emails(email_leads):
-    print("Sending emails...")
-    sent_records = []
-    
-    try:
-        with open('smartlead_api.txt', 'r') as f:
-            API_KEY = f.read().strip()
-            
-        SMARTLEAD_URL = f"https://server.smartlead.ai/api/v1/send-email?api_key={API_KEY}"
-        
-        for _, lead in email_leads.iterrows():
-            try:
-                email_step = lead['Emails Sent Count'] + 1
-                variations = ['A', 'B']
-                selected_variation = random.choice(variations)
-                template_name = f"call0325_email{email_step}_var{selected_variation}"
+                    print(f"⚠️ Skipping lead {lead['Email']}: Maximum email step reached")
+                    continue
                 
+                # Print which campaign the lead will be added to
+                print(f"Adding lead {lead['Email']} to campaign: {campaign_name} (ID: {campaign_id})")
+                
+                # Prepare payload with lead information, including Technology field
                 payload = {
-                    "campaign_id": "your_campaign_id",  # REPLACE WITH ACTUAL CAMPAIGN ID
-                    "lead_id": lead['id'],
-                    "to": lead['Email'],  # Changed from to_email to match API docs
-                    "custom_fields": {    # Changed from merge_fields
-                        "first_name": lead['First Name'],
-                        "last_name": lead['Last Name'],
+                    "campaign_id": campaign_id,
+                    "email": lead['Email'],
+                    "first_name": lead['First Name'],
+                    "last_name": lead['Last Name'],
+                    "custom_fields": {
+                        "Technology": lead['Technology']  # Include Technology field
                     }
                 }
                 
-                response = requests.post(
-                    SMARTLEAD_URL,
-                    json=payload
-                )
+                # Send POST request to Smartlead API
+                response = requests.post(SMARTLEAD_URL, json=payload)
                 
                 if response.status_code == 200:
-                    print(f"✅ Email sent: {lead['First Name']} {lead['Last Name']}")
+                    print(f"✅ Lead added to campaign: {lead['Email']} - Campaign: call0325_email{email_step} (ID: {campaign_id})")
                     sent_records.append({
                         'Email': lead['Email'],
+                        'Campaign': campaign_id,
                         'Step': email_step,
                         'Sent_Date': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     })
                 else:
-                    print(f"⚠️ Failed to send to {lead['Email']}: {response.text}")
+                    print(f"⚠️ Failed to add lead to campaign: {lead['Email']} - Error: {response.text}")
             
             except Exception as e:
-                print(f"⚠️ Error with {lead['Email']}: {str(e)}")
+                print(f"⚠️ Error processing lead {lead['Email']}: {str(e)}")
     
     except Exception as e:
-        print(f"🚨 Critical send_emails error: {str(e)}")
+        print(f"🚨 Critical error in send_emails: {str(e)}")
     
-    print(f"\nTotal emails sent: {len(sent_records)}")
+    print(f"\nTotal leads added to campaigns: {len(sent_records)}")
     return sent_records
+
 
 
 def get_operation_mode():
@@ -290,8 +255,24 @@ def get_operation_mode():
         print("Please enter 'yes' or 'no'.")
 
 def confirm_email_sends(email_leads):
+    # Define campaign IDs
+    campaign_ids = {
+        1: "1669416",  # call0325_email1
+        2: "1715364",  # call0325_email2
+        3: "1715373",  # call0325_email3
+    }
+    
+    # Determine the campaign for each lead
+    email_leads['Campaign'] = email_leads['Emails Sent Count'].apply(lambda x: campaign_ids.get(x+1, "Unknown"))
+    email_leads['Campaign Name'] = email_leads['Emails Sent Count'].apply(lambda x: f"call0325_email{x+1}")
+    
+    # Save leads with campaign information to Excel
     email_leads.to_excel('leads_to_email.xlsx', index=False)
     print("Leads to be emailed have been saved to 'leads_to_email.xlsx'")
+    
+    # Display campaign information
+    for _, lead in email_leads.iterrows():
+        print(f"Lead: {lead['Email']} - Campaign: {lead['Campaign Name']} (ID: {lead['Campaign']})")
     
     while True:
         confirm = input("Proceed with adding these leads to campaigns? (yes/no): ").lower()
@@ -300,6 +281,8 @@ def confirm_email_sends(email_leads):
         elif confirm == 'no':
             return False
         print("Please enter 'yes' or 'no'.")
+
+
 
 def main():
     api_key = authenticate_with_smartlead()
