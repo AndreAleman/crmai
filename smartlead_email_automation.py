@@ -180,6 +180,12 @@ def template_exists(template_name):
     # TODO: Implement actual check, possibly via Smartlead API
     return True  # Placeholder return
 
+
+
+
+
+
+
 def send_emails(email_leads):
     print("Adding leads to email campaigns...")
     sent_records = []
@@ -187,8 +193,6 @@ def send_emails(email_leads):
     try:
         with open('smartlead_api.txt', 'r') as f:
             API_KEY = f.read().strip()
-            
-        SMARTLEAD_URL = f"https://server.smartlead.ai/api/v1/leads/create?api_key={API_KEY}"
         
         for _, lead in email_leads.iterrows():
             try:
@@ -213,20 +217,22 @@ def send_emails(email_leads):
                 
                 # Prepare payload with lead information, including Technology field
                 payload = {
-                    "campaign_id": campaign_id,
-                    "email": lead['Email'],
-                    "first_name": lead['First Name'],
-                    "last_name": lead['Last Name'],
-                    "custom_fields": {
-                        "Technology": lead['Technology']  # Include Technology field
-                    }
+                    "lead_list": [{
+                        "email": lead['Email'],
+                        "first_name": lead['First Name'],
+                        "last_name": lead['Last Name'],
+                        "custom_fields": {
+                            "Technology": lead['Technology']  # Include Technology field
+                        }
+                    }]
                 }
                 
                 # Send POST request to Smartlead API
+                SMARTLEAD_URL = f"https://server.smartlead.ai/api/v1/campaigns/{campaign_id}/leads?api_key={API_KEY}"
                 response = requests.post(SMARTLEAD_URL, json=payload)
                 
                 if response.status_code == 200:
-                    print(f"✅ Lead added to campaign: {lead['Email']} - Campaign: call0325_email{email_step} (ID: {campaign_id})")
+                    print(f"✅ Lead added to campaign: {lead['Email']} - Campaign: {campaign_name} (ID: {campaign_id})")
                     sent_records.append({
                         'Email': lead['Email'],
                         'Campaign': campaign_id,
@@ -244,6 +250,21 @@ def send_emails(email_leads):
     
     print(f"\nTotal leads added to campaigns: {len(sent_records)}")
     return sent_records
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
