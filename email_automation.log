@@ -27,3 +27,17 @@
 2025-03-26 09:53:12,181 - INFO - Successfully sent 1 emails
 2025-03-26 09:53:12,181 - INFO - Automation cycle 3 completed
 2025-03-26 10:11:39,870 - INFO - Process stopped by user
+2025-03-26 10:49:32,223 - INFO - Starting automation cycle 1
+2025-03-26 10:49:33,728 - INFO - Successfully sent 1 emails
+2025-03-26 10:49:33,728 - INFO - Automation cycle 1 completed
+2025-03-26 10:53:37,949 - INFO - Process stopped by user
+2025-03-26 10:53:42,452 - INFO - Starting automation cycle 1
+2025-03-26 10:53:42,561 - ERROR - Critical error in cycle 1: 'NoneType' object has no attribute 'empty'
+2025-03-26 10:55:26,690 - INFO - Starting automation cycle 1
+2025-03-26 10:55:26,792 - ERROR - Critical error in cycle 1: 'NoneType' object has no attribute 'empty'
+2025-03-26 11:08:49,775 - INFO - Starting automation cycle 1
+2025-03-26 11:08:49,878 - ERROR - Critical error in cycle 1: 'NoneType' object has no attribute 'empty'
+2025-03-26 11:12:03,247 - INFO - Starting automation cycle 1
+2025-03-26 11:12:04,805 - INFO - Successfully sent 1 emails
+2025-03-26 11:12:04,805 - INFO - Automation cycle 1 completed
+2025-03-26 11:19:15,738 - INFO - Process stopped by user

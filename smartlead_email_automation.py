@@ -6,7 +6,6 @@ import time
 import logging
 import random
 
-
 # Set up logging to track script execution and errors
 logging.basicConfig(filename='email_automation.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -82,6 +81,7 @@ def fetch_leads_needing_email(df, test_mode=False):
     try:
         # Ensure 'Emails Sent Count' column exists and handle missing values
         df['Emails Sent Count'] = df.get('Emails Sent Count', 0).fillna(0).astype(int)
+        df['Last Action Date'] = pd.to_datetime(df['Last Action Date'], errors='coerce')
         
         if test_mode:
             # TEST MODE: Include all valid emails without filtering other criteria
@@ -92,11 +92,13 @@ def fetch_leads_needing_email(df, test_mode=False):
             print("🛠️ TEST MODE: Bypassing all filters except email validity")
         else:
             # PRODUCTION MODE: Apply filters to find eligible leads for email sending
+            three_months_ago = datetime.now() - pd.Timedelta(days=90)
             valid_leads = df[
                 (df['Next Action'] == 'Email') &
                 (df['Days Until Next Action'] <= 1) &
                 (df['Pause Trigger'].isna()) &
-                (df['Emails Sent Count'] < 4)
+                (df['Emails Sent Count'] < 4) &
+                ((df['Last Action Date'].isna()) | (df['Last Action Date'] < three_months_ago))
             ].copy()
 
         # Remove duplicate emails from the filtered list
@@ -107,22 +109,12 @@ def fetch_leads_needing_email(df, test_mode=False):
         if not test_mode and len(duplicates) > 0:
             print(f"⚠️ Skipped {len(valid_leads)-len(clean_leads)} duplicate emails")
 
-        # Check if lead was part of another campaign within the last 3 months (production mode only)
-        if not test_mode:
-            recent_campaign_leads = []
-            for _, lead in clean_leads.iterrows():
-                if 'Last Campaign Date' in lead and lead['Last Campaign Date'] and (datetime.now() - lead['Last Campaign Date']).days < 90:
-                    recent_campaign_leads.append(lead['Email'])
-            final_leads = clean_leads[~clean_leads['Email'].isin(recent_campaign_leads)]
-        else:
-            final_leads = clean_leads
-        
         # Print results of filtering process
-        print(f"Found {len(final_leads)} valid leads needing email actions.")
-        for _, lead in final_leads.iterrows():
+        print(f"Found {len(clean_leads)} valid leads needing email actions.")
+        for _, lead in clean_leads.iterrows():
             print(f"Preparing to email: {lead['First Name']} {lead['Last Name']} ({lead['Email']})")
         
-        return final_leads
+        return clean_leads
     
     except Exception as e:
         print(f"⚠️ Fetch error: {e}")
@@ -131,60 +123,21 @@ def fetch_leads_needing_email(df, test_mode=False):
 def update_email_counts(sent_records, file_path='leads.xlsx'):
     print("Updating completion dates...")
     try:
-        leads_df = pd.read_excel(file_path)
+        leads_df = pd.read_excel(file_path, dtype={
+            'Last Action Date': 'datetime64[ns]'
+        })
         
         for record in sent_records:
             mask = leads_df['Email'] == record['Email']
             leads_df.loc[mask, 'Emails Sent Count'] += 1
-            leads_df.loc[mask, 'Last Action Date'] = record['Sent_Date']
-            
-            # Update First Email Date only if it's empty
-            if pd.isnull(leads_df.loc[mask, 'First Email Date']).any():
-                leads_df.loc[mask, 'First Email Date'] = record['Sent_Date']
+            leads_df.loc[mask, 'Last Action Date'] = pd.to_datetime(record['Sent_Date'])
         
         leads_df.to_excel(file_path, index=False)
         print("✅ Completion dates updated successfully.")
     except Exception as e:
-        print(f"⚠️ Error updating completion dates: {e}")
-
-    return leads_df  # Return the updated DataFrame
-
-
-def get_template_name(email_step, campaign_date="0325"):
-    """
-    Determine the template name based on email step and available variations.
-    """
-    base_name = f"call{campaign_date}_email{email_step}"
-    variations = ['A', 'B']
+        print(f"⚠️ Error updating completion dates: {str(e)}")
     
-    # Check if varA exists
-    if template_exists(f"{base_name}_varA"):
-        # Check if varB exists
-        if template_exists(f"{base_name}_varB"):
-            # Both A and B exist, randomly choose
-            variation = random.choice(variations)
-        else:
-            # Only A exists
-            variation = 'A'
-    else:
-        # No variations, use base template
-        return base_name
-    
-    return f"{base_name}_var{variation}"
-
-def template_exists(template_name):
-    """
-    Check if a template exists in Smartlead.
-    This is a placeholder function - you'll need to implement the actual check.
-    """
-    # TODO: Implement actual check, possibly via Smartlead API
-    return True  # Placeholder return
-
-
-
-
-
-
+    return leads_df
 
 def send_emails(email_leads):
     print("Adding leads to email campaigns...")
@@ -251,23 +204,6 @@ def send_emails(email_leads):
     print(f"\nTotal leads added to campaigns: {len(sent_records)}")
     return sent_records
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def get_operation_mode():
     while True:
         mode = input("Run in automation mode? (yes/no): ").lower()
@@ -303,8 +239,6 @@ def confirm_email_sends(email_leads):
             return False
         print("Please enter 'yes' or 'no'.")
 
-
-
 def main():
     api_key = authenticate_with_smartlead()
     
@@ -330,7 +264,7 @@ def main():
                 if updated_leads is not None:
                     email_leads = fetch_leads_needing_email(updated_leads)
                     
-                    if not email_leads.empty:
+                    if email_leads is not None and not email_leads.empty:
                         if not automation_mode:
                             if confirm_email_sends(email_leads):
                                 sent_records = send_emails(email_leads)
